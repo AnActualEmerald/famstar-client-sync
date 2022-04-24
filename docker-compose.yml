@@ -1,0 +1,16 @@
+version: '3.4'
+
+services:
+  famstarclientsync:
+    container_name: famstar_sync
+    image: "famstar-sync:latest"
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - "./docker-data:/data"
+      - "/tmp/fam.sock:/tmp/fam.sock"
+    ports:
+      - 9000:9000

@@ -1,0 +1,11 @@
+version: '3.4'
+
+services:
+  famstarclientsync:
+    container_name: famstar_sync
+    image: famstarclientsync
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    env_file:
+      - .env
