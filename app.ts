@@ -9,6 +9,8 @@ const replica = new Earthstar.Replica(share, Earthstar.FormatValidatorEs4, new E
 const peer = new Earthstar.Peer()
 peer.addReplica(replica)
 
+const syncTarget = Deno.env.get("SYNC_TARGET") as string
+
 
 //setup websocket connection
 async function handler(req:Request) {
@@ -18,9 +20,14 @@ async function handler(req:Request) {
     const ws = await Deno.upgradeWebSocket(req);
     if(ws.response.status === 101){
         const socket = ws.socket;
-        socket.onmessage = async e => {
-            if(e.data === "start") {
-                await followerInit(socket);
+        socket.onopen = async () => {
+            const syncer = await followerInit(socket);
+            socket.onmessage = async e => {
+                if(e.data === "start") {
+                    await syncer(true)
+                }else if(e.data === "stop") {
+                    await syncer(false)
+                }
             }
         }
     }
@@ -47,17 +54,11 @@ messageFollower.bus.on(async (e) => {
             content: e.doc.content,
             hash: e.doc.contentHash
         }
-
-        socket.send(JSON.stringify(doc))
+        if(socket.readyState === socket.OPEN){
+            socket.send(JSON.stringify(doc))
+        }
     }
 })
-
-
-await imageFollower.hatch();
-await messageFollower.hatch();
-
-console.log("Start sync...");
-peer.sync("https://fam.greenboi.me/earthstar");
 
 //query all documents and send them over
 const messages = await replica.queryDocs({filter: {"pathStartsWith":"/messages"}, historyMode: 'all'});
@@ -73,12 +74,24 @@ const images = await replica.queryDocs({filter: {"pathStartsWith":"/images"}, hi
 images.forEach(v => {
     resizeAndSend(v.content, socket);
 });
+await imageFollower.hatch();
+await messageFollower.hatch();
 
-
-socket.onclose = () => {
-    messageFollower.close();
-    imageFollower.close();
+socket.onclose = async () => {
+    await messageFollower.close();
+    await imageFollower.close();
     peer.stopSyncing();
+}
+
+
+return async (running: boolean) => {
+    if(running) { 
+        console.log("Start sync...");
+        peer.sync(syncTarget);
+    }else {
+        console.log("Stopping sync...");
+        peer.stopSyncing();
+    }
 }
 
 }

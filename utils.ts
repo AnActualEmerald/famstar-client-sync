@@ -12,7 +12,9 @@ export async function resizeAndSend(raw: string, socket: WebSocket) {
    //encode back to Uint8Array
    const resized_raw = await resized.encode(0);
    //send blob
-   socket.send(new Blob([resized_raw]));
+   if(socket.readyState === socket.OPEN) {
+      socket.send(new Blob([resized_raw]));
+   }
 }
 
 export function Uint8ToString(u8a: Uint8Array){
