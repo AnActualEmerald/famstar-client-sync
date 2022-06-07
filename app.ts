@@ -20,11 +20,11 @@ peer.addReplica(replica);
 const syncTarget = Deno.env.get("SYNC_TARGET") as string;
 
 //setup websocket connection
-async function handler(req: Request) {
+function handler(req: Request) {
   if (req.headers.get("upgrade") != "websocket") {
     return new Response(null, { status: 501 });
   }
-  const ws = await Deno.upgradeWebSocket(req);
+  const ws = Deno.upgradeWebSocket(req);
   if (ws.response.status === 101) {
     const socket = ws.socket;
     socket.onopen = async () => {
@@ -52,7 +52,12 @@ async function followerInit(socket: WebSocket) {
   });
   imageFollower.bus.on((e) => {
     if (e.kind === "success") {
-      resizeAndSend(e.doc.path, e.doc.content, socket);
+      if (e.doc.content === "") {
+        console.log("Removing overwritten doc: ", e.doc.path);
+        socket.send(JSON.stringify({ type: "remove", path: e.doc.path }));
+      } else {
+        resizeAndSend(e.doc.path, e.doc.content, socket);
+      }
     } else if (e.kind === "expire") {
       console.log("Removing document: ", e.path);
       socket.send(JSON.stringify({ type: "remove", path: e.path }));
@@ -68,12 +73,17 @@ async function followerInit(socket: WebSocket) {
     console.log("message");
     console.log(e);
     if (e.kind === "success") {
-      const doc = {
-        content: e.doc.content,
-        hash: e.doc.contentHash,
-      };
-      if (socket.readyState === socket.OPEN) {
-        socket.send(JSON.stringify(doc));
+      if (e.doc.content === "") {
+        console.log("Removing overwriten doc: ", e.doc.path);
+        socket.send(JSON.stringify({ type: "remove", path: e.doc.path }));
+      } else {
+        const doc = {
+          content: e.doc.content,
+          hash: e.doc.contentHash,
+        };
+        if (socket.readyState === socket.OPEN) {
+          socket.send(JSON.stringify(doc));
+        }
       }
     } else if (e.kind === "expire") {
       console.log("Removeing document: ", e.path);
@@ -111,7 +121,7 @@ async function followerInit(socket: WebSocket) {
     peer.stopSyncing();
   };
 
-  return async (running: boolean) => {
+  return (running: boolean) => {
     if (running) {
       console.log("Start sync...");
       peer.sync(syncTarget);
