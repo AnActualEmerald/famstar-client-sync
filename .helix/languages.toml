@@ -1,3 +1,5 @@
 [[language]]
 name="typescript"
+auto-format=true
+language-server = {command = "deno", args = ["lsp"]}
 config = { deno = { enable = true, lint = true}}

@@ -2,7 +2,7 @@ import { ImageScript } from "./deps.ts";
 
 export function toUint8Array(input: string): Uint8Array {
   return new Uint8Array(
-    input.split("").map(function (c) {
+    input.split("").map(function(c) {
       return c.charCodeAt(0);
     }),
   );
@@ -11,26 +11,24 @@ export function toUint8Array(input: string): Uint8Array {
 export async function resizeAndSend(
   path: string,
   raw: string,
-  socket: WebSocket,
 ) {
   //decode
-  const image = await ImageScript.decode(toUint8Array(raw));
-  //resize to fit pi display
-  const resized = image.resize(
-    ImageScript.Image.RESIZE_AUTO,
-    480,
-  ) as ImageScript.Image;
-  //encode back to Uint8Array
-  const resized_raw = await resized.encode(0);
-  //send blob
-  if (socket.readyState === socket.OPEN) {
+  ImageScript.Image.decode(toUint8Array(raw)).then(async (image: ImageScript.Image) => {
+    //resize to fit pi display
+    const resized = image.resize(
+      ImageScript.Image.RESIZE_AUTO,
+      480,
+    ) as ImageScript.Image;
+    //encode back to Uint8Array
+    const resized_raw = await resized.encode(0);
+    //send blob
     const obj = {
-      type: "image",
+      type: "addImage",
       path,
       content: btoa(Uint8ToString(resized_raw)),
     };
-    socket.send(JSON.stringify(obj));
-  }
+    console.log(JSON.stringify(obj));
+  }).catch(console.log);
 }
 
 export function Uint8ToString(u8a: Uint8Array) {
